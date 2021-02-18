@@ -1,0 +1,33 @@
+﻿<Window x:Class="SplitAndSendLargeFileSimulator.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:SplitAndSendLargeFileSimulator"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="30"/>
+            <RowDefinition Height="30"/>
+            <RowDefinition Height="30"/>
+            <RowDefinition Height="30"/>
+            <RowDefinition Height="30"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+        <TextBox Name="tbIoTCS" Margin="1"/>
+        <Button Name="buttonConnect" Margin="1" Content="Connect" Grid.Row="1" Click="buttonConnect_Click"/>
+        <StackPanel Orientation="Horizontal" Grid.Row="2">
+            <Button Name="buttonFileSelect" Margin="1" Content="Select File" IsEnabled="False" Click="buttonFileSelect_Click"/>
+            <TextBox Name="tbFileName" Margin="1" />
+        </StackPanel>
+        <StackPanel Orientation="Horizontal" Margin="1" Grid.Row="3">
+            <TextBlock Text="Sending Unit Size" VerticalAlignment="Center" Margin="2"/>
+            <TextBox Name="tbSendingUnitSize" VerticalAlignment="Center" Margin="2" Text="256000" Width="100"/>
+        </StackPanel>
+        <Button Name="buttonSend" Margin="1" Content="Send" Grid.Row="4" IsEnabled="False" Click="buttonSend_Click"/>
+        <ScrollViewer Grid.Row="5" Margin="2">
+            <TextBlock Name="tbLog"/>
+        </ScrollViewer>
+    </Grid>
+</Window>
