@@ -88,7 +88,7 @@ namespace StoreSplittedData
                             var destBuf = new byte[contentBuffer.Length + message.Body.Count];
                             contentBuffer.CopyTo(destBuf, 0);
                             message.Body.CopyTo(destBuf, contentBuffer.Length);
-                            var mergedBlobName = $"{fn_common_part}.{message.Properties["ext"]}";
+                            var mergedBlobName = $"{fn_common_part}{message.Properties["ext"]}";
                             var memStream = new MemoryStream(destBuf);
                             await mergedClient.UploadBlobAsync(mergedBlobName, memStream);
                         }
