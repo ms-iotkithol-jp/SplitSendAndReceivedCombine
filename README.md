@@ -1,6 +1,6 @@
 # Split Send And Received Combine
 デバイス側でファイルを分割し、D2Cメッセージで IoT Hub に送信し、IoT Hub で受信したフラグメントをマージして復元し、Blob として Storage に保存するサンプル。  
-![overview](images/overview.png)
+![overview](images/overview.svg)
 
 ## セットアップ  
 ### ファイルフラグメントのマージ用 Durable Function 
