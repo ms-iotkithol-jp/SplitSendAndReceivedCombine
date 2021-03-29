@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:SplitAndSendLargeFileSimulator"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="MainWindow" Height="560" Width="800">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="30"/>
@@ -14,10 +14,13 @@
             <RowDefinition Height="30"/>
             <RowDefinition Height="30"/>
             <RowDefinition/>
+            <RowDefinition Height="60"/>
+            <RowDefinition Height="90"/>
         </Grid.RowDefinitions>
         <TextBox Name="tbIoTCS" Margin="1"/>
         <Button Name="buttonConnect" Margin="1" Content="Connect" Grid.Row="1" Click="buttonConnect_Click"/>
         <StackPanel Orientation="Horizontal" Grid.Row="2">
+            <CheckBox Name="cbSF" Content="Enable" VerticalAlignment="Center" Margin="2" Checked="cbSF_Checked"/>
             <Button Name="buttonFileSelect" Margin="1" Content="Select File" IsEnabled="False" Click="buttonFileSelect_Click"/>
             <TextBox Name="tbFileName" Margin="1" />
         </StackPanel>
@@ -29,5 +32,59 @@
         <ScrollViewer Grid.Row="5" Margin="2">
             <TextBlock Name="tbLog"/>
         </ScrollViewer>
+        <Grid Grid.Row="6">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="30"/>
+                <RowDefinition Height="30"/>
+            </Grid.RowDefinitions>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="Start" Margin="2" VerticalAlignment="Center"/>
+                <TextBox Name="tbStartUriPart" Text="/api/MergeFragments_HttpStart" VerticalAlignment="Center" Margin="2"/>
+                <TextBlock Text="Notify" Margin="2" VerticalAlignment="Center"/>
+                <TextBox Name="tbNotifyUriPart" Text="/api/MergeFragments_NotifyFragment" VerticalAlignment="Center" Margin="2"/>
+            </StackPanel>
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="200"/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="BaseUri" VerticalAlignment="Center" Margin="2"/>
+                <TextBox Name="tbBaseUri" Grid.Column="1" VerticalAlignment="Center" Margin="2"/>
+            </Grid>
+        </Grid>
+        <Grid Grid.Row="7">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="30"/>
+                <RowDefinition Height="30"/>
+                <RowDefinition Height="30"/>
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="200"/>
+                <ColumnDefinition/>
+                <ColumnDefinition Width="200"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Text="Start Uri"/>
+            <TextBox Name="tbStartUri" Grid.Row="0" Grid.Column="1"/>
+            <Button Name="buttonDFStart" Grid.Row="0" Grid.Column="2" Content="Invoke Start" Click="buttonDFStart_Click" IsEnabled="False"/>
+            <TextBlock Text="Notify Uri" Grid.Row="1" Grid.Column="0"/>
+            <TextBox Name="tbNotifyUri" Grid.Row="1" Grid.Column="1"/>
+            <Button Name="buttonDFNotify" Grid.Row="1" Grid.Column="2" Content="Invoke Notify" Click="buttonDFNotify_Click" IsEnabled="False"/>
+            <StackPanel Orientation="Horizontal" Grid.Row="2" Grid.ColumnSpan="3">
+                <TextBlock Text="DataId:" Margin="2" VerticalAlignment="Center"/>
+                <TextBlock Name="tbDFDataId" Margin="2" VerticalAlignment="Center"/>
+                <TextBlock Text="Ext:" Margin="2" VerticalAlignment="Center"/>
+                <TextBlock Name="tbDFExt" Margin="2" VerticalAlignment="Center"/>
+                <TextBlock Text="FileSize=" Margin="2" VerticalAlignment="Center"/>
+                <TextBlock Name="tbDFFileSize" Margin="2" VerticalAlignment="Center"/>
+                <TextBlock Text="Total=" Margin="2" VerticalAlignment="Center"/>
+                <TextBlock Name="tbDFTotal" Margin="2" VerticalAlignment="Center"/>
+                <TextBlock Text="Size=" Margin="2" VerticalAlignment="Center"/>
+                <TextBlock Name="tbDFSize" Margin="2" VerticalAlignment="Center"/>
+                <TextBlock Text="InstanceId=" Margin="2" VerticalAlignment="Center"/>
+                <TextBlock Name="tbDFInstanceId" Margin="2" VerticalAlignment="Center"/>
+                <TextBlock Text="Next Index=" Margin="2" VerticalAlignment="Center"/>
+                <TextBlock Name="tbDFIndex" Margin="2" VerticalAlignment="Center"/>
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>

@@ -1,0 +1,10 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "<- Connection String of Azure Storage Account for Azure Web Jobs ->;BlobEndpoint=https://<- your storage account name ->.blob.core.windows.net/;TableEndpoint=https://<- your storage account name ->.table.core.windows.net/;QueueEndpoint=https://<- your storage account name ->.queue.core.windows.net/;FileEndpoint=https://<- your storage account name ->.file.core.windows.net/",
+    "FUNCTIONS_WORKER_RUNTIME": "dotnet"
+  },
+  "ConnectionStrings": {
+    "outputblobstorage": "<- Connection String of Azure Storage Account for output ->"
+  }
+}

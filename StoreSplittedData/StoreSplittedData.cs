@@ -17,86 +17,105 @@ namespace StoreSplittedData
 {
     public static class StoreSplittedData
     {
-        private static BlobContainerClient splittedClient;
-        private static BlobContainerClient mergedClient;
+        private static Dictionary<string, string> mergeOrchectrators = new Dictionary<string, string>();
+        static HttpClient httpClient;
+        static string webhookStarterUrl;
+        static string webhookNotifyUrl;
 
         [FunctionName("StoreSplittedData")]
         public static async Task Run([IoTHubTrigger("messages/events", Connection = "iothubconnectionstring", ConsumerGroup = "split")] EventData message, ILogger log,
             ExecutionContext context)
         {
-            if (splittedClient == null)
-            {
-                var config = new ConfigurationBuilder().SetBasePath(context.FunctionAppDirectory).AddJsonFile("local.settings.json", optional: true, reloadOnChange: true).AddEnvironmentVariables().Build();
-                var blobCS = config.GetConnectionString("outptblobstoag");
-                splittedClient = new BlobContainerClient(blobCS, "splitreceive");
-                mergedClient = new BlobContainerClient(blobCS, "mergedsplited");
-            }
             log.LogInformation($"received message from ${message.SystemProperties["iothub-connection-device-id"]} at ${message.SystemProperties["iothub-enqueuedtime"]}");
             if (message.Properties.ContainsKey("msgtype"))
             {
                 if (message.Properties["msgtype"].ToString() == "split")
                 {
+                    if (httpClient == null)
+                    {
+                        httpClient = new HttpClient();
+                        var config = new ConfigurationBuilder().SetBasePath(context.FunctionAppDirectory).AddJsonFile("local.settings.json", optional: true, reloadOnChange: true).AddEnvironmentVariables().Build();
+                        webhookStarterUrl  = config.GetConnectionString("webhook_starter");
+                        webhookNotifyUrl = config.GetConnectionString("webhook_notify");
+                    }
                     var deviceId = message.SystemProperties["iothub-connection-device-id"].ToString();
                     string dataid = message.Properties["dataid"].ToString();
                     string indexStr = message.Properties["index"].ToString();
                     string totalStr = message.Properties["total"].ToString();
                     string fn_common_part = $"{deviceId}/{dataid}";
-                    int index = int.Parse(indexStr);
-                    int total = int.Parse(totalStr);
-                    if (index < total - 1)
+
+                    string orchId = null;
+                    if (mergeOrchectrators.ContainsKey(fn_common_part))
                     {
-                        using (var msgstream = new MemoryStream(message.Body.Array))
+                        orchId = mergeOrchectrators[fn_common_part];
+                    }
+                    if (string.IsNullOrEmpty(orchId))
+                    {
+                        var starterParameter = new Dictionary<string, string>()
                         {
-                            await splittedClient.UploadBlobAsync($"{fn_common_part}.{index}", msgstream);
+                            {"dataname",fn_common_part },
+                            {"index", indexStr },
+                            {"total", totalStr }
+                        };
+                        if (message.Properties.ContainsKey("ext"))
+                        {
+                            starterParameter.Add("extname", message.Properties["ext"].ToString());
+                        }
+                        var starterUrl = $"{webhookStarterUrl}?{await new FormUrlEncodedContent(starterParameter).ReadAsStringAsync()}";
+                        if (message.Properties.ContainsKey("ext"))
+                        {
+                            starterUrl += $"&extname={message.Properties["ext"]}";
+                        }
+                        var request = new HttpRequestMessage(HttpMethod.Get, starterUrl);
+                        var response = await httpClient.SendAsync(request);
+                        if (response.StatusCode== System.Net.HttpStatusCode.OK)
+                        {
+                            var starterResponse = await response.Content.ReadAsStringAsync();
+                            dynamic starterResponseJson = Newtonsoft.Json.JsonConvert.DeserializeObject(starterResponse);
+                            orchId = starterResponseJson["id"];
+                            mergeOrchectrators.Add(fn_common_part, orchId);
+                            log.LogInformation($"Starting merge job ${fn_common_part}<=>${orchId}");
                         }
                     }
-                    else if (index == total - 1)
+                    if (!string.IsNullOrEmpty(orchId))
                     {
-                        var blobs = new List<string>();
-                        var results = splittedClient.GetBlobsAsync(prefix: fn_common_part);
-                        int blobSize = 0;
-                        byte[] contentBuffer = null;
-                        await foreach (var blob in results)
+                        var notifyParemeter = new Dictionary<string, string>()
                         {
-                            blobs.Add(blob.Name);
-                            blobSize = (int)blob.Properties.ContentLength.Value;
-                        }
-                        if (blobs.Count == total - 1)
+                            { "instanceid", orchId },
+                            { "index", indexStr },
+                            { "total", totalStr },
+                            { "size", $"{message.Body.Count}" }
+                        };
+                        var notifyUrl = $"{webhookNotifyUrl}?{await new FormUrlEncodedContent(notifyParemeter).ReadAsStringAsync()}";
+                        var content = new ByteArrayContent(message.Body.Array);
+                        var response = await httpClient.PostAsync(notifyUrl, content);
+                        if (response.StatusCode== System.Net.HttpStatusCode.OK)
                         {
-                            for (int i = 0; i < total - 1; i++)
-                            {
-                                var buf = new byte[blobSize];
-                                var blobName = $"{fn_common_part}.{i}";
-                                var blob = splittedClient.GetBlobClient(blobName);
-                                var blobd = await blob.DownloadAsync();
-                                var bstream = blobd.Value.Content;
-                                await bstream.ReadAsync(buf, 0, blobSize);
-                                if (contentBuffer == null)
-                                {
-                                    contentBuffer = new byte[blobSize];
-                                    buf.CopyTo(contentBuffer, 0);
-                                }
-                                else
-                                {
-                                    var tmpBuf = new byte[contentBuffer.Length + blobSize];
-                                    contentBuffer.CopyTo(tmpBuf, 0);
-                                    buf.CopyTo(tmpBuf, contentBuffer.Length);
-                                    contentBuffer = tmpBuf;
-                                }
-                                await splittedClient.DeleteBlobAsync(blobName);
-                            }
-                            var destBuf = new byte[contentBuffer.Length + message.Body.Count];
-                            contentBuffer.CopyTo(destBuf, 0);
-                            message.Body.CopyTo(destBuf, contentBuffer.Length);
-                            var mergedBlobName = $"{fn_common_part}.{message.Properties["ext"]}";
-                            var memStream = new MemoryStream(destBuf);
-                            await mergedClient.UploadBlobAsync(mergedBlobName, memStream);
+                            log.LogInformation($"Notifyed instaneid={orchId}");
                         }
                         else
                         {
-                            log.LogInformation($"{dataid} from {deviceId} should be devided to {total} but {blobs.Count}");
+                            log.LogInformation($"Notification response = ${response.StatusCode}");
                         }
                     }
+                    else
+                    {
+                        // error
+                    }
+
+                    if (message.Properties.ContainsKey("ext"))
+                    {
+                        fn_common_part += $".{message.Properties["ext"]}";
+                    }
+                    int index = int.Parse(indexStr);
+                    int total = int.Parse(totalStr);
+                    // should i invoke function when index == 0? or send data by not blob but octed stream?
+                    // using (var msgstream = new MemoryStream(message.Body.Array))
+                    // {
+                    //    var blobName = $"{fn_common_part}.{totalStr}.{index}.{index}";
+                    //    await splittedClient.UploadBlobAsync(blobName, msgstream);
+                    //    log.LogInformation($"{blobName} is uploaded");
+                    //}
                 }
             }
         }

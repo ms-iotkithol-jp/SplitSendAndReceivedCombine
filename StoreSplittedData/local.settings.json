@@ -3,9 +3,11 @@
   "Values": {
     "AzureWebJobsStorage": "<- Connection String of Azure Storage Account for Azure Web Jobs",
     "FUNCTIONS_WORKER_RUNTIME": "dotnet",
-    "iothubconnectionstring": "<- Connection String of IoT Hub service Role ->"
+    "iothubconnectionstring": "<- Connection String of IoT Hub service Role ->",
+    "webhook_starter": "<- Function URI for MergeFragments_HttpStart ->",
+    "webhook_notify": "<- Function URI for MergeFragments_NotifyFragment ->
   },
   "ConnectionStrings": {
-    "outptblobstoag": "<- Connection String of Azure Storage Account for output ->"
+    "outputblobstorage": "<- Connection String of Azure Storage Account for output ->"
   }
 }
