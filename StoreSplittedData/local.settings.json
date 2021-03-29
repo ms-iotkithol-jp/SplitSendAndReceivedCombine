@@ -5,7 +5,7 @@
     "FUNCTIONS_WORKER_RUNTIME": "dotnet",
     "iothubconnectionstring": "<- Connection String of IoT Hub service Role ->",
     "webhook_starter": "<- Function URI for MergeFragments_HttpStart ->",
-    "webhook_notify": "<- Function URI for MergeFragments_NotifyFragment ->
+    "webhook_notify": "<- Function URI for MergeFragments_NotifyFragment ->"
   },
   "ConnectionStrings": {
     "outputblobstorage": "<- Connection String of Azure Storage Account for output ->"
