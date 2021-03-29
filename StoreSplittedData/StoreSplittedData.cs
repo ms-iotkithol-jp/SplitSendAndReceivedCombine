@@ -91,7 +91,38 @@ namespace StoreSplittedData
                         var response = await httpClient.PostAsync(notifyUrl, content);
                         if (response.StatusCode== System.Net.HttpStatusCode.OK)
                         {
+<<<<<<< HEAD
                             log.LogInformation($"Notifyed instaneid={orchId}");
+=======
+                            for (int i = 0; i < total - 1; i++)
+                            {
+                                var buf = new byte[blobSize];
+                                var blobName = $"{fn_common_part}.{i}";
+                                var blob = splittedClient.GetBlobClient(blobName);
+                                var blobd = await blob.DownloadAsync();
+                                var bstream = blobd.Value.Content;
+                                await bstream.ReadAsync(buf, 0, blobSize);
+                                if (contentBuffer == null)
+                                {
+                                    contentBuffer = new byte[blobSize];
+                                    buf.CopyTo(contentBuffer, 0);
+                                }
+                                else
+                                {
+                                    var tmpBuf = new byte[contentBuffer.Length + blobSize];
+                                    contentBuffer.CopyTo(tmpBuf, 0);
+                                    buf.CopyTo(tmpBuf, contentBuffer.Length);
+                                    contentBuffer = tmpBuf;
+                                }
+                                await splittedClient.DeleteBlobAsync(blobName);
+                            }
+                            var destBuf = new byte[contentBuffer.Length + message.Body.Count];
+                            contentBuffer.CopyTo(destBuf, 0);
+                            message.Body.CopyTo(destBuf, contentBuffer.Length);
+                            var mergedBlobName = $"{fn_common_part}{message.Properties["ext"]}";
+                            var memStream = new MemoryStream(destBuf);
+                            await mergedClient.UploadBlobAsync(mergedBlobName, memStream);
+>>>>>>> cb5ca3fbb4c789cd0b2a6b6925a506efacadec1e
                         }
                         else
                         {
