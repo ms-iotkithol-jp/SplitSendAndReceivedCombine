@@ -87,26 +87,38 @@ namespace SplitAndSendLargeFileSimulator
                 var fi = new FileInfo(tbFileName.Text);
                 ShowLog($"uploading {fid} by {numOfFrags}");
                 var startTime = DateTime.Now;
-                for (int i = 0; i < numOfFrags; i++)
+                int index = 0;
+                while (index < numOfFrags)
                 {
-                    var readLength = await fs.ReadAsync(buf, 0, unitSize);
-                    var sendBuf = buf;
-                    if (readLength < unitSize)
+                    try
                     {
-                        sendBuf = new byte[readLength];
-                        using (var memStream = new MemoryStream(sendBuf))
+                        fs.Seek(index * unitSize, SeekOrigin.Begin);
+                        var readLength = await fs.ReadAsync(buf, 0, unitSize);
+                        var sendBuf = buf;
+                        if (readLength < unitSize)
                         {
-                            await memStream.WriteAsync(buf, 0, readLength);
-                            await memStream.FlushAsync();
+                            sendBuf = new byte[readLength];
+                            using (var memStream = new MemoryStream(sendBuf))
+                            {
+                                await memStream.WriteAsync(buf, 0, readLength);
+                                await memStream.FlushAsync();
+                            }
+                            unitSize = readLength;
                         }
+                        var msg = new Message(sendBuf);
+                        msg.Properties.Add("msgtype", "split");
+                        msg.Properties.Add("dataid", fid);
+                        msg.Properties.Add("index", $"{index}");
+                        msg.Properties.Add("total", $"{numOfFrags}");
+                        msg.Properties.Add("ext", fi.Extension);
+                        msg.Properties.Add("unitsize", $"{unitSize}");
+                        await deviceClient.SendEventAsync(msg);
+                        index++;
                     }
-                    var msg = new Message(sendBuf);
-                    msg.Properties.Add("msgtype", "split");
-                    msg.Properties.Add("dataid", fid);
-                    msg.Properties.Add("index", $"{i}");
-                    msg.Properties.Add("total", $"{numOfFrags}");
-                    msg.Properties.Add("ext", fi.Extension);
-                    await deviceClient.SendEventAsync(msg);
+                    catch (Exception ex)
+                    {
+                        ShowLog($"Failed - {ex.Message}");
+                    }
                 }
                 var endTime = DateTime.Now;
                 var deltaTime = endTime.Subtract(startTime);
