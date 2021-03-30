@@ -50,7 +50,7 @@ namespace MergeData
                     log.LogError($"({context.InstanceId})[{i}] - {ex.Message}");
                 }
 
-                // In the case of SignalEntity, update actions are done by asynchronously so this logic can't gurantedd to complete all merge actions before blob upload.
+                // In the case of SignalEntity, update actions are done by asynchronously so this logic can't guranted to complete all merge actions before blob upload.
                 // context.SignalEntity(entityId, nameof(MergeState.WriteData),mergeArg);
                 // In the case of CallActivityAsync target MergeState instance can't be accessed in MergeFragments_Merge logic.
                 // var mergeResult = await context.CallActivityAsync<bool>("MergeFragments_Merge", mergeArg);
@@ -114,8 +114,8 @@ namespace MergeData
                 };
                 using (var mergedClient = await binder.BindAsync<CloudBlobStream>(blobAttrbutes))
                 {
-                    var dfi = await client.ReadEntityStateAsync<MergeState>(arg.entityId);
-                    await mergedClient.WriteAsync(dfi.EntityState.MergedData, 0, dfi.EntityState.TotalSize);
+                    var mergeState = await client.ReadEntityStateAsync<MergeState>(arg.entityId);
+                    await mergedClient.WriteAsync(mergeState.EntityState.MergedData, 0, mergeState.EntityState.TotalSize);
                     await mergedClient.FlushAsync();
                     log.LogInformation($"{arg.blobName} is uploaded");
                 }
@@ -137,15 +137,15 @@ namespace MergeData
             try
             {
                 var instanceId = req.RequestUri.ParseQueryString()["instanceid"];
-                var Index = int.Parse(req.RequestUri.ParseQueryString()["index"]);
-                var TotalFragments = int.Parse(req.RequestUri.ParseQueryString()["total"]);
-                var UnitSize = int.Parse(req.RequestUri.ParseQueryString()["size"]);
+                var index = int.Parse(req.RequestUri.ParseQueryString()["index"]);
+                var totalFragments = int.Parse(req.RequestUri.ParseQueryString()["total"]);
+                var unitSize = int.Parse(req.RequestUri.ParseQueryString()["size"]);
                 using (var stream = await req.Content.ReadAsStreamAsync())
                 {
-                    var data = new byte[UnitSize];
-                    await stream.ReadAsync(data, 0, UnitSize);
-                    (byte[] data, int index) arg = (data, Index);
-                    await client.RaiseEventAsync(instanceId, $"{Index}", arg);
+                    var data = new byte[unitSize];
+                    await stream.ReadAsync(data, 0, unitSize);
+                    (byte[] data, int index) arg = (data, index);
+                    await client.RaiseEventAsync(instanceId, $"{index}", arg);
                 }
                 return new HttpResponseMessage(System.Net.HttpStatusCode.OK);
             }
