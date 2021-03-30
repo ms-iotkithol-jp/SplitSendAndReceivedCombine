@@ -2,6 +2,17 @@
 デバイス側でファイルを分割し、D2Cメッセージで IoT Hub に送信し、IoT Hub で受信したフラグメントをマージして復元し、Blob として Storage に保存するサンプル。  
 ![overview](images/overview.svg)
 
+IoT Hub に送信するデバイスは、256KB以上のファイルを分割し、順番にメッセージのボディとして、以下のプロパティを付与して送信する。  
+|プロパティ名|値|
+|-|-|
+|msgtype|split|
+|dataid|ブロブとして格納する際の名前|
+|index|0から初めて、分割の番号|
+|total|分割数|
+|ext|ブロブとして格納する際の拡張子|
+|unitsize|送信するデータのバイト数|
+
+---
 ## セットアップ  
 ### ファイルフラグメントのマージ用 Durable Function 
 [MergeData](MergeData) を、Azure にデプロイし、Function の"設定"→"構成"
@@ -17,8 +28,8 @@
 |名前|種別|設定値|
 |-|-|-|
 |iothubconnectionstring|アプリケーション設定|IoT Hub の service ロールの接続文字列|
-|webhook_starter|アプリケーション設定| MergeData の MergeFragments_HttpStart の URI|
-|webhook_notify|アプリケーション設定| MergeData の MergeFragments_NotifyFragment の URI|
+|webhook_starter|接続文字列| MergeData の MergeFragments_HttpStart の URI|
+|webhook_notify|接続文字列| MergeData の MergeFragments_NotifyFragment の URI|
 
 
 ---
