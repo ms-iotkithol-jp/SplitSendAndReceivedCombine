@@ -113,6 +113,7 @@ namespace SplitAndSendLargeFileSimulator
                         msg.Properties.Add("ext", fi.Extension);
                         msg.Properties.Add("unitsize", $"{unitSize}");
                         await deviceClient.SendEventAsync(msg);
+                        ShowLog($"Send[{index}]");
                         index++;
                     }
                     catch (Exception ex)

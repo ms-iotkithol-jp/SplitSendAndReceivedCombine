@@ -25,7 +25,8 @@ namespace MergeData
             var dataFragInfo = context.GetInput<DataFragInfo>();
             var entityId = new EntityId(nameof(MergeState), context.InstanceId);
             var mergeStateProxy = context.CreateEntityProxy<IMergeState>(entityId);
-            mergeStateProxy.Allocate(dataFragInfo.UnitSize * dataFragInfo.TotalFragments);
+            (int totalSize, int unitSize) allocateArg = (dataFragInfo.UnitSize * dataFragInfo.TotalFragments, dataFragInfo.UnitSize);
+            mergeStateProxy.Allocate(allocateArg);
             // In the case of SignalEntity, update actions are done by asynchronously so this logic can't gurantedd to complete all merge actions before blob upload.
             // context.SignalEntity(entityId,nameof(MergeState.Initialize));
             // context.SignalEntity(entityId, nameof(MergeState.Allocate), dataFragInfo.UnitSize * dataFragInfo.TotalFragments);
@@ -34,17 +35,25 @@ namespace MergeData
             {
                 // Wait for fragment uploading via MergeFragments_NotifyFragment
                 var result = await context.WaitForExternalEvent<(byte[] data, int index)>($"{i}");
-                using (await context.LockAsync(entityId))
+                try
                 {
-                    (byte[] data, int offset) mergeArg = (result.data, dataFragInfo.UnitSize * result.index);
-                    mergeStateProxy.WriteData(mergeArg);
+            //        using (await context.LockAsync(entityId))
+              //      {
+                        var mergeWorkProxy = context.CreateEntityProxy<IMergeState>(entityId);
+                        (byte[] data, int offset) mergeArg = (result.data, result.index);
+                        mergeWorkProxy.WriteData(mergeArg);
+              //      }
+                    log.LogInformation($"Merged[{i}] - {counter++}");
+                }
+                catch (Exception ex)
+                {
+                    log.LogError($"({context.InstanceId})[{i}] - {ex.Message}");
                 }
 
                 // In the case of SignalEntity, update actions are done by asynchronously so this logic can't gurantedd to complete all merge actions before blob upload.
                 // context.SignalEntity(entityId, nameof(MergeState.WriteData),mergeArg);
                 // In the case of CallActivityAsync target MergeState instance can't be accessed in MergeFragments_Merge logic.
                 // var mergeResult = await context.CallActivityAsync<bool>("MergeFragments_Merge", mergeArg);
-                log.LogInformation($"Merged[{i}] - {counter++}");
                 // This logic process result of CallActivityAsync case.
                 // if (!mergeResult)
                 // {
@@ -131,7 +140,6 @@ namespace MergeData
                 var Index = int.Parse(req.RequestUri.ParseQueryString()["index"]);
                 var TotalFragments = int.Parse(req.RequestUri.ParseQueryString()["total"]);
                 var UnitSize = int.Parse(req.RequestUri.ParseQueryString()["size"]);
-
                 using (var stream = await req.Content.ReadAsStreamAsync())
                 {
                     var data = new byte[UnitSize];
@@ -185,8 +193,8 @@ namespace MergeData
 
         public interface IMergeState
         {
-            public void Allocate(int size);
-            public void WriteData((byte[] data, int offset) arg);
+            public void Allocate((int totalSize,int unitSize) arg);
+            public void WriteData((byte[] data, int index) arg);
         }
 
         [JsonObject(MemberSerialization.OptIn)]
@@ -196,16 +204,19 @@ namespace MergeData
             public byte[] MergedData { get; set; }
             [JsonProperty("TotalSize")]
             public int TotalSize { get; set; }
+            [JsonProperty("UnitSize")]
+            public int UnitSize { get; set; }
 
-            public void Allocate(int size)
+            public void Allocate((int totalSize,int unitSize)arg)
             {
                 TotalSize = 0;
-                MergedData = new byte[size];
+                UnitSize = arg.unitSize;
+                MergedData = new byte[arg.totalSize];
             }
             
-            public void WriteData((byte[] data, int offset) arg)
+            public void WriteData((byte[] data, int index) arg)
             {
-                arg.data.CopyTo(MergedData, arg.offset);
+                arg.data.CopyTo(MergedData, arg.index * UnitSize);
                 TotalSize += arg.data.Length;
             }
         }

@@ -85,12 +85,20 @@ namespace StoreSplittedData
                             { "total", totalStr },
                             { "size", $"{message.Body.Count}" }
                         };
+                        log.LogInformation($"Notifying message[{indexStr}]({notifyParemeter["size"]}) - orchId={orchId}");
                         var notifyUrl = $"{webhookNotifyUrl}?{await new FormUrlEncodedContent(notifyParemeter).ReadAsStringAsync()}";
                         var content = new ByteArrayContent(message.Body.Array);
                         var response = await httpClient.PostAsync(notifyUrl, content);
                         if (response.StatusCode== System.Net.HttpStatusCode.OK)
                         {
-                            log.LogInformation($"Notifyed instaneid={orchId}");
+                            log.LogInformation($"Notifyed [{indexStr}] instaneid={orchId}");
+                            int index = int.Parse(indexStr);
+                            int total = int.Parse(totalStr);
+                            if (index + 1 >= total)
+                            {
+                                mergeOrchectrators.Remove(fn_common_part);
+                                log.LogInformation($"dataname:{fn_common_part}[{orchId}] has been completed.");
+                            }
                         }
                         else
                         {
