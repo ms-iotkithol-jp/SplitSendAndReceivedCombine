@@ -31,6 +31,7 @@ IoT Hub に送信するデバイスは、256KB以上のファイルを分割し�
 |webhook_starter|接続文字列| MergeData の MergeFragments_HttpStart の URI|
 |webhook_notify|接続文字列| MergeData の MergeFragments_NotifyFragment の URI|
 
+本関数では、dataidが同じメッセージ群ごとに、Orchestrator インスタンスを MergeFragments_HttpStart を介して作成し、一連の Fragments のマージ処理を行う。
 
 ---
 ## テスト 
