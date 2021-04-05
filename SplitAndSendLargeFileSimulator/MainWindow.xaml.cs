@@ -1,4 +1,5 @@
 ﻿using Microsoft.Azure.Devices.Client;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
@@ -24,7 +25,6 @@ namespace SplitAndSendLargeFileSimulator
     /// </summary>
     public partial class MainWindow : Window
     {
-        readonly string iothubCS = "<- Device Connection String ->";
         public MainWindow()
         {
             InitializeComponent();
@@ -33,7 +33,11 @@ namespace SplitAndSendLargeFileSimulator
 
         private void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
-            this.tbIoTCS.Text = iothubCS;
+            var config = new ConfigurationBuilder().
+                SetBasePath(Directory.GetCurrentDirectory()).
+                AddJsonFile("appsettings.json",optional:true,reloadOnChange:true).Build();
+            var csSection = config.GetSection("Connectionstrings");
+            this.tbIoTCS.Text = csSection["iothubconnectionstring"];
         }
 
         private DeviceClient deviceClient;
@@ -73,9 +77,9 @@ namespace SplitAndSendLargeFileSimulator
 
         private async void buttonSend_Click(object sender, RoutedEventArgs e)
         {
-            var unitSize = int.Parse(tbSendingUnitSize.Text);
             using (var fs = File.OpenRead(tbFileName.Text))
             {
+                int unitSize = CalcUnitSize(fs);
                 if (unitSize >= fs.Length)
                 {
                     MessageBox.Show("selected file is small!");
@@ -127,6 +131,23 @@ namespace SplitAndSendLargeFileSimulator
             }
         }
 
+        private int CalcUnitSize(FileStream fs)
+        {
+            int unitSize = 0;
+            if (cbSpecifiedByNo.IsChecked.Value)
+            {
+                var aOfFrags = int.Parse(tbAoFrags.Text);
+                unitSize = (int)Math.Ceiling((double)fs.Length / (double)aOfFrags);
+                tbSendingUnitSize.Text = $"{unitSize}";
+            }
+            else
+            {
+                unitSize = int.Parse(tbSendingUnitSize.Text);
+            }
+
+            return unitSize;
+        }
+
         private void ShowLog(string log)
         {
             var now = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
@@ -147,6 +168,9 @@ namespace SplitAndSendLargeFileSimulator
         string currentDataId;
         string currentExtName;
 
+        List<(Dictionary<string, string> requestParams, byte[] data)> sendingFragments = new List<(Dictionary<string, string> requestParams, byte[] data)>();
+        List<int> sendingOrder = new List<int>();
+
         private async void buttonDFStart_Click(object sender, RoutedEventArgs e)
         {
             if (string.IsNullOrEmpty(tbStartUri.Text))
@@ -160,51 +184,95 @@ namespace SplitAndSendLargeFileSimulator
                 currentFS.Close();
                 await currentFS.DisposeAsync();
             }
-            currentUnitSize = int.Parse(tbSendingUnitSize.Text);
-            currentFS = File.OpenRead(tbFileName.Text);
-            var fi = new FileInfo(tbFileName.Text);
-            currentDataId = fi.Name;
-            currentExtName = fi.Extension;
-            if (!string.IsNullOrEmpty(currentExtName))
-            {
-                currentDataId = currentDataId.Substring(0, currentDataId.Length - currentExtName.Length);
-            }
-            currentIndex = 0;
-            var contentLengh = currentFS.Length;
-            currentTotal = (int)Math.Ceiling((double)contentLengh / (double)currentUnitSize);
+            sendingFragments.Clear();
+            sendingOrder.Clear();
 
-            using (var httpClient = new HttpClient())
+            using (currentFS = File.OpenRead(tbFileName.Text))
             {
-                var requestParams = new Dictionary<string, string>()
+                try
+                {
+                    var fi = new FileInfo(tbFileName.Text);
+                    currentDataId = fi.Name;
+                    currentExtName = fi.Extension;
+                    if (!string.IsNullOrEmpty(currentExtName))
+                    {
+                        currentDataId = currentDataId.Substring(0, currentDataId.Length - currentExtName.Length);
+                    }
+                    currentIndex = 0;
+                    var contentLengh = currentFS.Length;
+                    currentUnitSize = CalcUnitSize(currentFS);
+                    currentTotal = (int)Math.Ceiling((double)contentLengh / (double)currentUnitSize);
+
+                    using (var httpClient = new HttpClient())
+                    {
+                        var requestParams = new Dictionary<string, string>()
                 {
                     {"dataname",currentDataId },
                     {"extname", currentExtName },
                     {"total",$"{currentTotal}" },
                     {"unitsize",$"{currentUnitSize}" }
                 };
-                var requestUri = $"{tbStartUri.Text}?{await new FormUrlEncodedContent(requestParams).ReadAsStringAsync()}";
-                ShowLog($"Invoking Start - {requestUri}");
-                var response = await httpClient.GetAsync(requestUri);
-                ShowLog($"Response Code - {response.StatusCode}");
-                var contentStr = await response.Content.ReadAsStringAsync();
-                if (response.StatusCode == System.Net.HttpStatusCode.OK||response.StatusCode==  System.Net.HttpStatusCode.Accepted)
-                {
-                    dynamic contentJson = Newtonsoft.Json.JsonConvert.DeserializeObject(contentStr);
-                    currentInstanceId = contentJson["id"];
-                    ShowLog($"Response - {response.StatusCode}");
-                    tbDFDataId.Text = currentDataId;
-                    tbDFIndex.Text = $"{currentIndex}";
-                    tbDFInstanceId.Text = currentInstanceId;
-                    tbDFSize.Text = $"{currentUnitSize}";
-                    tbDFTotal.Text = $"{currentTotal}";
-                    tbDFExt.Text = currentExtName;
-                    tbDFFileSize.Text = $"{fi.Length}";
-                    buttonDFNotify.IsEnabled = true;
-                    buttonDFStart.IsEnabled = false;
+                        var requestUri = $"{tbStartUri.Text}?{await new FormUrlEncodedContent(requestParams).ReadAsStringAsync()}";
+                        ShowLog($"Invoking Start - {requestUri}");
+                        var response = await httpClient.GetAsync(requestUri);
+                        ShowLog($"Response Code - {response.StatusCode}");
+                        var contentStr = await response.Content.ReadAsStringAsync();
+                        if (response.StatusCode == System.Net.HttpStatusCode.OK || response.StatusCode == System.Net.HttpStatusCode.Accepted)
+                        {
+                            dynamic contentJson = Newtonsoft.Json.JsonConvert.DeserializeObject(contentStr);
+                            currentInstanceId = contentJson["id"];
+                            ShowLog($"Response - {response.StatusCode}");
+                            tbDFDataId.Text = currentDataId;
+                            tbDFIndex.Text = $"{currentIndex}";
+                            tbDFInstanceId.Text = currentInstanceId;
+                            tbDFSize.Text = $"{currentUnitSize}";
+                            tbDFTotal.Text = $"{currentTotal}";
+                            tbDFExt.Text = currentExtName;
+                            tbDFFileSize.Text = $"{fi.Length}";
+                            buttonDFNotify.IsEnabled = true;
+                            buttonDFStart.IsEnabled = false;
+
+
+                            for (int index = 0; index < currentTotal; index++)
+                            {
+                                var buf = new byte[currentUnitSize];
+                                var readSize = await currentFS.ReadAsync(buf, 0, currentUnitSize);
+                                if (readSize != currentUnitSize)
+                                {
+                                    currentUnitSize = readSize;
+                                }
+                                var requestParams4NOtify = new Dictionary<string, string>()
+                    {
+                        {"instanceid",currentInstanceId },
+                        {"index",$"{index}" },
+                        {"total",$"{currentTotal}" },
+                        {"size",$"{currentUnitSize}" }
+                    };
+                                sendingFragments.Add((requestParams4NOtify, buf));
+                                sendingOrder.Add(index);
+                            }
+                            if (cbRandamOrder.IsChecked.Value)
+                            {
+                                var tempOrder = new List<int>();
+                                while (sendingOrder.Count > 0)
+                                {
+                                    int next = orderRandom.Next(sendingOrder.Count-1);
+                                    tempOrder.Add(sendingOrder[next]);
+                                    sendingOrder.RemoveAt(next);
+                                }
+                                sendingOrder = tempOrder;
+                            }
+                            currentIndex = 0;
+                        }
+                        else
+                        {
+                            ShowLog($"Error ? - {contentStr}");
+                        }
+                    }
                 }
-                else
+                catch(Exception ex)
                 {
-                    ShowLog($"Error ? - {contentStr}");
+                    ShowLog($"Exception - {ex.Message}");
                 }
             }
         }
@@ -223,25 +291,12 @@ namespace SplitAndSendLargeFileSimulator
                 return;
                 tbNotifyUri.Text = tbBaseUri.Text + tbNotifyUriPart.Text;
             }
-            if (currentFS != null && currentIndex < currentTotal)
+            if (sendingFragments.Count>0 && currentIndex < currentTotal)
             {
                 using (var httpClient = new HttpClient())
                 {
-                    var buf = new byte[currentUnitSize];
-                    var readSize = await currentFS.ReadAsync(buf, 0, currentUnitSize);
-                    if (readSize != currentUnitSize)
-                    {
-                        currentUnitSize = readSize;
-                    }
-                    var requestParams = new Dictionary<string, string>()
-                    {
-                        {"instanceid",currentInstanceId },
-                        {"index",$"{currentIndex++}" },
-                        {"total",$"{currentTotal}" },
-                        {"size",$"{currentUnitSize}" }
-                    };
-                    var requestUri = $"{tbNotifyUri.Text}?{await new FormUrlEncodedContent(requestParams).ReadAsStringAsync()}";
-                    var httpContent = new ByteArrayContent(buf);
+                    var requestUri = $"{tbNotifyUri.Text}?{await new FormUrlEncodedContent(sendingFragments[currentIndex].requestParams).ReadAsStringAsync()}";
+                    var httpContent = new ByteArrayContent(sendingFragments[currentIndex].data);
                     ShowLog($"Invoke Notify - {requestUri}");
                     var response = await httpClient.PostAsync(requestUri, httpContent);
                     if (response.StatusCode== System.Net.HttpStatusCode.OK)
@@ -261,6 +316,26 @@ namespace SplitAndSendLargeFileSimulator
                 buttonDFNotify.IsEnabled = false;
                 buttonDFStart.IsEnabled = true;
             }
+        }
+
+        private void cbSpecifiedByNo_Checked(object sender, RoutedEventArgs e)
+        {
+            if (cbSpecifiedByNo.IsChecked.Value)
+            {
+                tbSendingUnitSize.IsEnabled = false;
+                tbAoFrags.IsEnabled = true;
+            }
+            else
+            {
+                tbSendingUnitSize.IsEnabled = true;
+                tbAoFrags.IsEnabled = false;
+            }
+        }
+
+        Random orderRandom;
+        private void cbRandamOrder_Checked(object sender, RoutedEventArgs e)
+        {
+            orderRandom = new Random(DateTime.Now.Millisecond);
         }
     }
 }

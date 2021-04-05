@@ -27,6 +27,8 @@
         <StackPanel Orientation="Horizontal" Margin="1" Grid.Row="3">
             <TextBlock Text="Sending Unit Size" VerticalAlignment="Center" Margin="2"/>
             <TextBox Name="tbSendingUnitSize" VerticalAlignment="Center" Margin="2" Text="256000" Width="100"/>
+            <CheckBox Name="cbSpecifiedByNo" Content="By Amount of fragments" VerticalAlignment="Center" Margin="2" Checked="cbSpecifiedByNo_Checked"/>
+            <TextBox Name="tbAoFrags" Margin="2" VerticalAlignment="Center" Text="10" Width="100" IsEnabled="False"/>
         </StackPanel>
         <Button Name="buttonSend" Margin="1" Content="Send" Grid.Row="4" IsEnabled="False" Click="buttonSend_Click"/>
         <ScrollViewer Grid.Row="5" Margin="2">
@@ -42,6 +44,7 @@
                 <TextBox Name="tbStartUriPart" Text="/api/MergeFragments_HttpStart" VerticalAlignment="Center" Margin="2"/>
                 <TextBlock Text="Notify" Margin="2" VerticalAlignment="Center"/>
                 <TextBox Name="tbNotifyUriPart" Text="/api/MergeFragments_NotifyFragment" VerticalAlignment="Center" Margin="2"/>
+                <CheckBox Name="cbRandamOrder" Content="Order randmize" Margin="2" VerticalAlignment="Center" Checked="cbRandamOrder_Checked"/>
             </StackPanel>
             <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>
